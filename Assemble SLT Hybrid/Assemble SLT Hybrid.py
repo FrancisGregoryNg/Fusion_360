@@ -15,8 +15,8 @@ def run(context):
     ui = None
     evaluationsFolder = str(pathlib.Path(__file__).parents[3].joinpath('2---Data')) + '/MBO/evaluations.xls'
     with xlrd.open_workbook(evaluationsFolder, on_demand=True) as book:
-        active_rows = book.sheet_by_name('current').col_values(0)
-        evaluations = list(range(1, len(active_rows)))
+        active_rows = book.sheet_by_name('current').col_values(7)
+        evaluations = [row for row, value in enumerate(active_rows, start=0) if value != 'None' and row != 0]
     for evaluation in evaluations:
         try:
             app = adsk.core.Application.get()
@@ -70,13 +70,14 @@ def run(context):
                 return jointGeometry
 
             # Create rigid joint
-            def createJoint(object_1, object_2, type='rigid', isFlipped='False'):
+            def createJoint(object_1, object_2, type='rigid', isFlipped='False', angle_offset=0):
                 jointInput = joints.createInput(object_1, object_2)
                 if type=='rigid':
                     jointInput.setAsRigidJointMotion()
                 elif type=='revolute':
                     jointInput.setAsRevoluteJointMotion(2) # 2 for z-axis
-                    jointInput.angle = adsk.core.ValueInput.createByString(str(random.uniform(0, 360)) + 'deg')
+                    jointInput.angle = adsk.core.ValueInput.createByString(str(angle_offset) + 'deg')
+                    #jointInput.angle = adsk.core.ValueInput.createByString(str(random.uniform(0, 360)) + 'deg')
                 jointInput.isFlipped = isFlipped
                 joint = joints.add(jointInput)
                 return joint
@@ -195,10 +196,15 @@ def run(context):
             PB0 = createJoint(beam0_middle, plane0_left, type='rigid', isFlipped=True)
             PB1 = createJoint(beam1_middle, plane0_right, type='rigid', isFlipped=True)
 
-            BMb0 = createJoint(motor0_base, beam0_front, type='revolute', isFlipped=True)
-            BMb1 = createJoint(motor1_base, beam0_back, type='revolute', isFlipped=True)
-            BMb2 = createJoint(motor2_base, beam1_front, type='revolute', isFlipped=True)
-            BMb3 = createJoint(motor3_base, beam1_back, type='revolute', isFlipped=True)
+            if motor_selection == 4:
+                angleCorrection = -30    # the propeller of motor #4 somehow is not straight when joined
+            else:
+                angleCorrection = 0
+
+            BMb0 = createJoint(motor0_base, beam0_front, type='revolute', isFlipped=True, angle_offset=angleCorrection)
+            BMb1 = createJoint(motor1_base, beam0_back, type='revolute', isFlipped=True, angle_offset=angleCorrection)
+            BMb2 = createJoint(motor2_base, beam1_front, type='revolute', isFlipped=True, angle_offset=angleCorrection)
+            BMb3 = createJoint(motor3_base, beam1_back, type='revolute', isFlipped=True, angle_offset=angleCorrection)
             
             MrP0 = createJoint(propeller0_top, motor0_rotor, type='revolute', isFlipped=False)
             MrP1 = createJoint(propeller1_top, motor1_rotor, type='revolute', isFlipped=True)
@@ -227,8 +233,9 @@ def run(context):
             params = design.allParameters
             params.itemByName('distanceFromCenterline').expression = distanceFromCenterline + 'cm'
             params.itemByName('beamLength').expression = beam_length + 'cm'
-            params.itemByName('pitch').expression = str(float(pitch)+90) + 'deg'       
-                # after the 28Oct2019 update, importing somehow turns every import by 90 degrees
+            params.itemByName('pitch').expression = pitch + 'deg'
+                #importing somehow turns every import by 90 degrees 
+                #str(float(pitch)+90) + 'deg' seems to work but instead, just change the preference from Y-up to Z-up (matching CFD 2019)
             params.itemByName('connectionWidth').expression = params.itemByName('beamWidth').expression
 
     #==============================================================================
@@ -253,11 +260,11 @@ def run(context):
     #==============================================================================
 
             CFDfolder = pathlib.PureWindowsPath(Datafolder).joinpath('CFD')
-            filename = ('M' + str(motor_selection) + "_"
-                        + 'P' + str(propeller_selection) + "_"
-                        + distanceFromCenterline + 'cm_' 
-                        + beam_length + 'cm_' 
-                        + pitch + 'deg')
+            filename = (f'M{motor_selection:02d}_'
+                      + f'P{propeller_selection:02d}_'
+                      + f'{float(distanceFromCenterline):.2f}cm_' 
+                      + f'{float(beam_length):.2f}cm_' 
+                      + f'{float(pitch):.2f}deg')
             filename = filename.replace('.', ',') + '.step'
 
             export_directory = pathlib.PureWindowsPath(CFDfolder).joinpath(filename)
