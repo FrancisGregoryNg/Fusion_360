@@ -270,6 +270,7 @@ def run(context):
             export_directory = pathlib.PureWindowsPath(CFDfolder).joinpath(filename)
             STEP_Options = design.exportManager.createSTEPExportOptions(str(export_directory))
             STEP_Export = design.exportManager.execute(STEP_Options)
+            doc.close(False)    # do not save document since STEP is already exported
 
     #==============================================================================
     #         Error Message
