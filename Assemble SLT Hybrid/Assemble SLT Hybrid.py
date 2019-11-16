@@ -15,8 +15,8 @@ def run(context):
     ui = None
     evaluationsFolder = str(pathlib.Path(__file__).parents[3].joinpath('2---Data')) + '/MBO/evaluations.xls'
     with xlrd.open_workbook(evaluationsFolder, on_demand=True) as book:
-        active_rows = book.sheet_by_name('current').col_values(7)
-        evaluations = [row for row, value in enumerate(active_rows, start=0) if value != 'None' and row != 0]
+        active_rows = book.sheet_by_name('current').col_values(0)
+        evaluations = [row for row, value in enumerate(active_rows, start=0) if value == '' and row != 0]
     for evaluation in evaluations:
         try:
             app = adsk.core.Application.get()
@@ -91,7 +91,7 @@ def run(context):
             plane_selection = 1     # fixed
             beam_selection = 1      # fixed
             with xlrd.open_workbook(str(Datafolder) + '/MBO/evaluations.xls', on_demand=True) as book:
-                selection_indices = book.sheet_by_name('current').row_values(evaluation, 0, 2)
+                selection_indices = book.sheet_by_name('current').row_values(evaluation, 4, 6)
                 motor_selection, propeller_selection = [int(index) for index in selection_indices]
 
             # Load component names
@@ -227,9 +227,11 @@ def run(context):
     #==============================================================================
 
             with xlrd.open_workbook(str(Datafolder) + '/MBO/evaluations.xls', on_demand=True) as book:
-                parameters = book.sheet_by_name('current').row_values(evaluation, 4, 7)
-                distanceFromCenterline, beam_length, pitch = [str(parameter) for parameter in parameters]
-
+                beam_parameters = book.sheet_by_name('current').row_values(evaluation, 8, 10)
+                pitch_parameter = book.sheet_by_name('current').cell_value(evaluation, 2)
+                distanceFromCenterline, beam_length = [str(parameter) for parameter in beam_parameters]
+                pitch = str(pitch_parameter)
+                
             params = design.allParameters
             params.itemByName('distanceFromCenterline').expression = distanceFromCenterline + 'cm'
             params.itemByName('beamLength').expression = beam_length + 'cm'
